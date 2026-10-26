@@ -1,0 +1,31 @@
+From 5e8f576176ca3aee32fbdfa4a4ab35aee0db1db1 Mon Sep 17 00:00:00 2001
+From: vignesh-chaturvedi <vigneshchaturvedi@gmail.com>
+Date: Mon, 26 Oct 2026 23:55:40 +0530
+Subject: [PATCH] libc-test: Allow `target_os = "qnx"` on older compilers
+
+`target_os = "qnx"` is only known to recent compilers. With older ones,
+such as the Rust 1.94.1 that OpenBSD 7.9 ships, `tests/makedev.rs` fails
+to build under `-Dwarnings` because of `unexpected_cfgs`. libc's build
+script already allows this value through `CHECK_CFG_EXTRA`.
+
+Assisted-by: LLM
+---
+ libc-test/Cargo.toml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/libc-test/Cargo.toml b/libc-test/Cargo.toml
+index 04ea3cdd6..491ba69ab 100644
+--- a/libc-test/Cargo.toml
++++ b/libc-test/Cargo.toml
+@@ -64,5 +64,8 @@ harness = false
+ #              once MSRV is above 1.64 and replaced with `[lints] workspace=true`
+ 
+ [lints.rust]
++# Older compilers do not know `target_os = "qnx"`. libc's build script allows it
++# the same way, see `CHECK_CFG_EXTRA`.
++unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("qnx"))'] }
+ 
+ [lints.clippy]
+-- 
+2.51.0
+
