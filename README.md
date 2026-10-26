@@ -16,6 +16,7 @@ Targets:
 
 | Target | OpenBSD | Rust |
 |--------|---------|------|
+| `x86_64-unknown-openbsd` | 8.0 | 1.98.1 (from packages) |
 | `x86_64-unknown-openbsd` | 7.9 | 1.94.1 (from packages) |
 
 See <https://github.com/rust-lang/libc/issues/5209> for more details.
