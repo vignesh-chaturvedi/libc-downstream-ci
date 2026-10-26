@@ -1,0 +1,85 @@
+name: CI
+permissions: {}
+
+on:
+  schedule:
+    # Run this job daily
+    - cron: "0 9 * * *"
+  # Allow starting this job manually for either libc branch
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: libc branch to use
+        required: true
+        default: main
+        type: choice
+        options:
+          - main
+          - libc-0.2
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_TERM_VERBOSE: true
+  LIBC_CI: 1
+  RUSTDOCFLAGS: -Dwarnings
+  RUSTFLAGS: -Dwarnings
+  RUST_BACKTRACE: full
+
+jobs:
+  openbsd:
+    name: Test ${{ matrix.target }} (OpenBSD ${{ matrix.release }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # OpenBSD has no rustup support, so this uses the `rust` package that
+          # ships with the release. 7.9 provides Rust 1.94.1, which is newer
+          # than the 1.88 that ctest requires.
+          - target: x86_64-unknown-openbsd
+            release: "7.9"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      # Check out this repository to `$GITHUB_WORKSPACE/downstream` for any needed files
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: downstream
+          persist-credentials: false
+      # Check out libc to `$GITHUB_WORKSPACE/rust-libc`
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rust-lang/libc
+          ref: ${{ inputs.branch || 'main' }}
+          path: rust-libc
+          persist-credentials: false
+
+      - name: Apply patches
+        run: |
+          set -eux
+          git config --global user.name "GHA Runner"
+          git config --global user.email "none@github.com"
+          if ls downstream/patches/*.patch >/dev/null 2>&1; then
+            git -C rust-libc am "$PWD"/downstream/patches/*.patch
+          fi
+          git -C rust-libc log -1 --oneline
+
+      - name: Test on OpenBSD
+        uses: vmactions/openbsd-vm@f1ca8bc8ecc5b6ef7218e5b914836e067e1546d3 # v1.4.9
+        with:
+          release: ${{ matrix.release }}
+          envs: CARGO_TERM_COLOR CARGO_TERM_VERBOSE LIBC_CI RUSTDOCFLAGS RUSTFLAGS RUST_BACKTRACE
+          mem: 6144
+          copyback: false
+          prepare: |
+            set -eux
+            pkg_add -I rust
+          run: |
+            set -eux
+            # Building the generated tests needs more memory than the
+            # default login class allows.
+            ulimit -d "$(ulimit -H -d)" || true
+            uname -a
+            rustc -Vv
+            cargo -V
+            cd rust-libc
+            ./ci/run.sh ${{ matrix.target }}
