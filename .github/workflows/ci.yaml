@@ -22,7 +22,9 @@ env:
   CARGO_TERM_VERBOSE: true
   LIBC_CI: 1
   RUSTDOCFLAGS: -Dwarnings
-  RUSTFLAGS: -Dwarnings
+  # Rust knows `target_os = "qnx"` only since 1.98, so allow it for the older
+  # Rust on OpenBSD 7.9. Keep it free of spaces, Cargo splits RUSTFLAGS on them.
+  RUSTFLAGS: '-Dwarnings --check-cfg=cfg(target_os,values("qnx"))'
   RUST_BACKTRACE: full
 
 jobs:
